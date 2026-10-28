@@ -1,6 +1,8 @@
 """Download the raw data once; the result is versioned with `dvc add data/raw`.
 
 - Load: SMARD (Bundesnetzagentur), series 410 "Netzlast", hourly, MWh per hour.
+- Official forecast: SMARD series 411, the grid operators' day-ahead load
+  forecast. Only used as a benchmark, never as a feature.
 - Weather: Open-Meteo historical archive, hourly 2 m temperature and solar
   radiation for one city per federal state.
 
@@ -19,7 +21,8 @@ import requests
 
 from gridload.geo import STATES
 
-SMARD = "https://www.smard.de/app/chart_data/410/DE"
+SMARD = "https://www.smard.de/app/chart_data/{series}/DE"
+LOAD, TSO_FORECAST = 410, 411
 OPEN_METEO = "https://archive-api.open-meteo.com/v1/archive"
 WEATHER_VARS = ["temperature_2m", "shortwave_radiation"]
 
@@ -34,18 +37,19 @@ def _get(url: str, **params) -> dict:
     raise RuntimeError(url)
 
 
-def download_load(start: str, end: str) -> pd.DataFrame:
-    """Hourly grid load in MW (MWh per hour) between start and end (UTC, inclusive)."""
+def download_smard(series: int, column: str, start: str, end: str) -> pd.DataFrame:
+    """One hourly SMARD series in MW (MWh per hour) between start and end (UTC, inclusive)."""
+    base = SMARD.format(series=series)
     lo = pd.Timestamp(start, tz="UTC")
     hi = pd.Timestamp(end, tz="UTC") + pd.Timedelta(hours=23)
-    weeks = _get(f"{SMARD}/index_hour.json")["timestamps"]
+    weeks = _get(f"{base}/index_hour.json")["timestamps"]
     # each file holds one week starting at the timestamp; keep weeks that overlap the range
     week_ms = 7 * 24 * 3600 * 1000
     wanted = [t for t in weeks if lo.value // 10**6 - week_ms < t <= hi.value // 10**6]
     rows = []
     for t in wanted:
-        rows += _get(f"{SMARD}/410_DE_hour_{t}.json")["series"]
-    df = pd.DataFrame(rows, columns=["ms", "load_mw"])
+        rows += _get(f"{base}/{series}_DE_hour_{t}.json")["series"]
+    df = pd.DataFrame(rows, columns=["ms", column])
     df["time"] = pd.to_datetime(df["ms"], unit="ms", utc=True)
     df = df.drop(columns="ms").drop_duplicates("time").set_index("time").sort_index()
     return df.loc[lo:hi]
@@ -80,9 +84,13 @@ def main() -> None:
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
-    load = download_load(args.start, args.end)
+    load = download_smard(LOAD, "load_mw", args.start, args.end)
     load.to_csv(args.out / "load.csv")
     print(f"load: {len(load):,} hours, {load.index.min()} -> {load.index.max()}")
+
+    tso = download_smard(TSO_FORECAST, "tso_forecast_mw", args.start, args.end)
+    tso.to_csv(args.out / "tso_forecast.csv")
+    print(f"official forecast: {len(tso):,} hours")
 
     weather = download_weather(args.start, args.end)
     weather.to_csv(args.out / "weather.csv", index=False)
