@@ -1,0 +1,120 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python -m gridload.prepare
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 6714afcab061c47732150a25f803a092.dir
+      size: 42463552
+      nfiles: 3
+    - path: src/gridload/geo.py
+      hash: md5
+      md5: a5370694299cd10178e86ea20da1a8b6
+      size: 1331
+    - path: src/gridload/prepare.py
+      hash: md5
+      md5: 7cc2d687e7c49e3c9ee5efc6dc518859
+      size: 2229
+    outs:
+    - path: data/prepared/hourly.parquet
+      hash: md5
+      md5: 90a15389b4bc663c5912d1bacd92ccea
+      size: 2262691
+  featurize:
+    cmd: python -m gridload.featurize
+    deps:
+    - path: data/prepared/hourly.parquet
+      hash: md5
+      md5: 90a15389b4bc663c5912d1bacd92ccea
+      size: 2262691
+    - path: src/gridload/featurize.py
+      hash: md5
+      md5: 0dd1f77dc214983743516dd2a6dfa1fd
+      size: 4084
+    - path: src/gridload/geo.py
+      hash: md5
+      md5: a5370694299cd10178e86ea20da1a8b6
+      size: 1331
+    params:
+      params.yaml:
+        features:
+          lags_h:
+          - 48
+          - 72
+          - 168
+          weather: true
+          holidays: true
+        split:
+          train_start: '2019-01-01'
+          val_start: '2024-01-01'
+          test_start: '2025-01-01'
+          end: '2025-12-31'
+    outs:
+    - path: data/features/features.parquet
+      hash: md5
+      md5: 17fb3e42225c84da13ae64edd831bd65
+      size: 3945213
+  train:
+    cmd: python -m gridload.train
+    deps:
+    - path: data/features/features.parquet
+      hash: md5
+      md5: 17fb3e42225c84da13ae64edd831bd65
+      size: 3945213
+    - path: src/gridload/train.py
+      hash: md5
+      md5: bc3c70ec61c6cea19e43926ec6badfd6
+      size: 1813
+    params:
+      params.yaml:
+        train:
+          learning_rate: 0.05
+          num_leaves: 31
+          min_child_samples: 20
+          n_estimators: 3000
+          early_stopping_rounds: 100
+          seed: 42
+    outs:
+    - path: models/model.txt
+      hash: md5
+      md5: b99e6e3c2d8552e09d4371e736b1a9e4
+      size: 4761524
+    - path: reports/train.json
+      hash: md5
+      md5: 8430c4ac9129f46d887b51558c4587da
+      size: 49
+  evaluate:
+    cmd: python -m gridload.evaluate
+    deps:
+    - path: data/features/features.parquet
+      hash: md5
+      md5: 17fb3e42225c84da13ae64edd831bd65
+      size: 3945213
+    - path: data/prepared/hourly.parquet
+      hash: md5
+      md5: 90a15389b4bc663c5912d1bacd92ccea
+      size: 2262691
+    - path: models/model.txt
+      hash: md5
+      md5: b99e6e3c2d8552e09d4371e736b1a9e4
+      size: 4761524
+    - path: src/gridload/evaluate.py
+      hash: md5
+      md5: 50ac5f7d38b57ad97e96ad12841c1ec9
+      size: 5940
+    outs:
+    - path: reports/figures
+      hash: md5
+      md5: 960271b76a320a772f977b6dbad8971a.dir
+      size: 249482
+      nfiles: 3
+    - path: reports/metrics.json
+      hash: md5
+      md5: 53a48d399fbe30186c5bdc039f85cb48
+      size: 775
+    - path: reports/plots
+      hash: md5
+      md5: de26090db6d1a24eab4f03b450805a37.dir
+      size: 8892
+      nfiles: 2

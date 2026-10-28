@@ -7,3 +7,4 @@ __pycache__/
 .DS_Store
 SESSION_NOTES*.txt
 requirements-ci.txt
+dvc_plots/

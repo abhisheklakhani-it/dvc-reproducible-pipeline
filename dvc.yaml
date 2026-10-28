@@ -1,0 +1,63 @@
+stages:
+  prepare:
+    cmd: python -m gridload.prepare
+    deps:
+      - src/gridload/prepare.py
+      - src/gridload/geo.py
+      - data/raw
+    outs:
+      - data/prepared/hourly.parquet
+
+  featurize:
+    cmd: python -m gridload.featurize
+    deps:
+      - src/gridload/featurize.py
+      - src/gridload/geo.py
+      - data/prepared/hourly.parquet
+    params:
+      - features
+      - split
+    outs:
+      - data/features/features.parquet
+
+  train:
+    cmd: python -m gridload.train
+    deps:
+      - src/gridload/train.py
+      - data/features/features.parquet
+    params:
+      - train
+    outs:
+      - models/model.txt
+    metrics:
+      - reports/train.json:
+          cache: false
+
+  evaluate:
+    cmd: python -m gridload.evaluate
+    deps:
+      - src/gridload/evaluate.py
+      - models/model.txt
+      - data/features/features.parquet
+      - data/prepared/hourly.parquet
+    metrics:
+      - reports/metrics.json:
+          cache: false
+    outs:  # small files, kept in git; shown by the top-level plots below
+      - reports/plots:
+          cache: false
+      - reports/figures:
+          cache: false
+
+plots:
+  - Forecast vs actual, test week:
+      template: linear
+      x: time
+      y:
+        reports/plots/forecast_week.csv: [actual_mw, forecast_mw, naive_week_mw]
+  - MAE by hour of day, test year:
+      template: linear
+      x: hour
+      y:
+        reports/plots/mae_by_hour.csv: [model, naive_week]
+  - reports/figures

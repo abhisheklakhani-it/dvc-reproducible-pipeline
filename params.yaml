@@ -1,0 +1,18 @@
+split:
+  train_start: "2019-01-01"  # local dates, Europe/Berlin
+  val_start: "2024-01-01"    # early stopping and experiment comparison
+  test_start: "2025-01-01"   # reported, never used to choose anything
+  end: "2025-12-31"
+
+features:
+  lags_h: [48, 72, 168]  # load this many hours earlier; must all be known at forecast time
+  weather: true          # population-weighted temperature and solar radiation
+  holidays: true         # holiday share, Christmas week, bridge days
+
+train:
+  learning_rate: 0.05
+  num_leaves: 31
+  min_child_samples: 20
+  n_estimators: 3000
+  early_stopping_rounds: 100
+  seed: 42
