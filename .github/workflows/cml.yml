@@ -1,0 +1,60 @@
+name: Pipeline report
+
+# On every pull request: pull the data from the DVC remote, rerun the stages
+# whose inputs changed, and post params + metrics diffs against main as a comment.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  report:
+    name: dvc repro + CML comment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # dvc compares against origin/main
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - uses: iterative/setup-cml@e5f9f4673e0a8f275c45cc66dbbfd29c8469fb4e # v2.1.0
+        with:
+          version: "0.20.6"
+      - name: Install locked dependencies
+        run: uv sync --locked --no-dev
+      - name: Pull data and cached stage outputs (public remote, no credentials)
+        run: uv run dvc pull --allow-missing
+      - name: Reproduce the pipeline
+        run: uv run dvc repro
+      - name: Post report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Pipeline report"
+            echo
+            echo "Rerun with \`dvc repro\` on this branch, compared with \`main\`."
+            echo
+            echo "### Params changed"
+            uv run dvc params diff origin/main --md
+            echo
+            echo "### Metrics changed"
+            uv run dvc metrics diff origin/main --md --precision 3
+            echo
+            echo "### Test week and error by hour on this branch"
+            echo "![forecast](./reports/figures/forecast_week.png)"
+            echo "![mae by hour](./reports/figures/mae_by_hour.png)"
+          } > report.md
+          cml comment create --watermark-title="dvc-pipeline-report" report.md
