@@ -46,9 +46,17 @@ jobs:
           uv run dvc pull --allow-missing
       - name: Reproduce the pipeline
         run: uv run dvc repro
+      # CML's image host (asset.cml.dev) no longer works, so the plots go to
+      # the run as a downloadable artifact and the comment links to it.
+      - name: Upload plots
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plots
+          path: reports/figures/*.png
       - name: Post report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           {
             echo "## Pipeline report"
@@ -61,8 +69,7 @@ jobs:
             echo "### Metrics changed"
             uv run dvc metrics diff origin/main --md --precision 3
             echo
-            echo "### Test week and error by hour on this branch"
-            echo "![forecast](./reports/figures/forecast_week.png)"
-            echo "![mae by hour](./reports/figures/mae_by_hour.png)"
+            echo "### Plots"
+            echo "Test week and error by hour on this branch: \`plots\` artifact of [this run]($RUN_URL)."
           } > report.md
-          cml comment create --watermark-title="dvc-pipeline-report" report.md
+          cml comment create --no-publish --watermark-title="dvc-pipeline-report" report.md
