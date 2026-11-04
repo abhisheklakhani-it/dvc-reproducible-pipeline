@@ -11,7 +11,7 @@ Day-ahead forecast of **German electricity demand** as a fully reproducible **DV
 
 ```console
 $ git clone https://github.com/abhisheklakhani-it/dvc-reproducible-pipeline && cd dvc-reproducible-pipeline
-$ uv sync && uv run dvc pull          # raw data + cached outputs from the public DVC remote
+$ uv sync && uv run dvc pull          # raw data + cached outputs from DagsHub (free token, see "Running it")
 $ uv run dvc repro -f                 # rebuild every stage from the raw data: ~30 s on an M2 MacBook Air
 val: model MAE 1431 MW (2.76%), official 1963 MW, last week 2656 MW
 test: model MAE 1446 MW (2.73%), official 1933 MW, last week 2616 MW
@@ -61,7 +61,7 @@ flowchart LR
 | no-weather | `features.weather=false` | 1,524 MW | +6.5 % |
 | bigger-trees | 127 leaves, lr 0.03, min 50 per leaf | 1,435 MW | +0.3 % |
 
-**Metrics diffs in pull requests.** [`cml.yml`](.github/workflows/cml.yml) runs on every PR: `dvc pull` from the public remote (no credentials), `dvc repro`, then `dvc params diff` and `dvc metrics diff` against `main`, posted as a PR comment by CML together with the branch's plots.
+**Metrics diffs in pull requests.** [`cml.yml`](.github/workflows/cml.yml) runs on every PR: `dvc pull` from DagsHub (token from the `DAGSHUB_TOKEN` repo secret), `dvc repro`, then `dvc params diff` and `dvc metrics diff` against `main`, posted as a PR comment by CML together with the branch's plots.
 
 ## What I learned
 
@@ -91,8 +91,13 @@ flowchart LR
 
 Needs [uv](https://docs.astral.sh/uv/). DVC is installed by `uv sync`.
 
+The DVC remote is a public DagsHub repo, but DagsHub only serves files to signed-in users. Use a free account's token ([settings → tokens](https://dagshub.com/user/settings/tokens)); `--local` keeps it in the gitignored `.dvc/config.local`. No account? `uv run python -m gridload.download && uv run dvc repro` rebuilds the raw data straight from SMARD and Open-Meteo instead.
+
 ```bash
 uv sync
+uv run dvc remote modify origin --local auth basic
+uv run dvc remote modify origin --local user <your-dagshub-user>
+uv run dvc remote modify origin --local password <your-token>
 uv run dvc pull          # data/raw + every cached output
 uv run dvc repro         # "up to date": outputs match dvc.lock
 uv run dvc repro -f      # force a full rebuild from data/raw
@@ -109,7 +114,7 @@ Change a value in `params.yaml` and run `uv run dvc repro`: only the affected st
 - **One weather point per state.** A big city stands in for each state; a gridded, population-weighted average would be more accurate.
 - **Point forecasts only.** No prediction intervals, which a grid operator would want for reserve planning.
 - **The official forecast may define load slightly differently.** It is on average 400 MW above the measured load in 2025, so part of its error may be definitional.
-- **The public remote is DagsHub's free tier.** If it disappears, `python -m gridload.download` rebuilds `data/raw`; the numbers would match unless SMARD revises history.
+- **The remote is DagsHub's free tier and needs a login to read.** If it disappears, `python -m gridload.download` rebuilds `data/raw`; the numbers would match unless SMARD revises history.
 
 ## Next steps
 

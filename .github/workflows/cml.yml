@@ -34,8 +34,16 @@ jobs:
           version: "0.20.6"
       - name: Install locked dependencies
         run: uv sync --locked --no-dev
-      - name: Pull data and cached stage outputs (public remote, no credentials)
-        run: uv run dvc pull --allow-missing
+      - name: Pull data and cached stage outputs from DagsHub
+        env:
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          # DagsHub needs a signed-in user even for public repos; the token
+          # goes into .dvc/config.local on the runner, never into git.
+          uv run dvc remote modify origin --local auth basic
+          uv run dvc remote modify origin --local user abhisheklakhani-it
+          uv run dvc remote modify origin --local password "$DAGSHUB_TOKEN"
+          uv run dvc pull --allow-missing
       - name: Reproduce the pipeline
         run: uv run dvc repro
       - name: Post report
