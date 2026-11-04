@@ -61,7 +61,9 @@ flowchart LR
 | no-weather | `features.weather=false` | 1,524 MW | +6.5 % |
 | bigger-trees | 127 leaves, lr 0.03, min 50 per leaf | 1,435 MW | +0.3 % |
 
-**Metrics diffs in pull requests.** [`cml.yml`](.github/workflows/cml.yml) runs on every PR: `dvc pull` from DagsHub (token from the `DAGSHUB_TOKEN` repo secret), `dvc repro`, then `dvc params diff` and `dvc metrics diff` against `main`, posted as a PR comment by CML with a link to the branch's plots (uploaded as a run artifact).
+**Metrics diffs in pull requests.** [`cml.yml`](.github/workflows/cml.yml) runs on every PR: `dvc pull` from DagsHub (token from the `DAGSHUB_TOKEN` repo secret), `dvc repro`, then `dvc params diff` and `dvc metrics diff` against `main`, posted as a PR comment by CML with a link to the branch's plots (uploaded as a run artifact). Here is the bot on [PR #1](https://github.com/abhisheklakhani-it/dvc-reproducible-pipeline/pull/1), which tries 63 leaves instead of 31. Test MAE drops by 16 MW but val MAE rises by 8 MW, so main keeps 31: the same "don't choose on test" lesson as the bigger-trees experiment.
+
+![CML pipeline report on PR #1](docs/cml_pr_comment.png)
 
 ## What I learned
 
